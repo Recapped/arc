@@ -34,12 +34,14 @@ defmodule Arc.Actions.Store do
       |> Enum.map(fn({v, r})    -> async_put_version(definition, v, {r, scope}) end)
       |> Enum.map(fn(task) -> Task.await(task, version_timeout()) end)
       |> handle_responses(file.file_name)
+      |> cleanup(file)
     else
       definition.__versions
       |> Enum.map(fn(version) -> process_version(definition, version, {file, scope}) end)
       |> ensure_all_success
       |> Enum.map(fn({version, result}) -> put_version(definition, version, {result, scope}) end)
       |> handle_responses(file.file_name)
+      |> cleanup(file)
     end
   end
 
@@ -83,5 +85,12 @@ defmodule Arc.Actions.Store do
         result = definition.__storage.put(definition, version, {file, scope})
         result
     end
+  end
+
+  defp cleanup(result, %Arc.File{path: local_path}) do
+    # delete temporary file, doesn't matter if it fails
+    _ = File.rm(local_path)
+
+    result
   end
 end
